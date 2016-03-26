@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
 # parse_ftp_tracedb_data.pl
 #
@@ -449,7 +449,7 @@ FILE: foreach my $anc_file (@anc_files) {
 
 	# now need to run the dust program to filter low complexity regions from reads
 	print STDERR "Filtering sequences with DUST\n";
-	system("dust $output_file.predust > $output_file.dust") && die "Can't run dust program on $output_file.predust\n";
+	system("dustmasker -in $output_file.predust -out $output_file.dust -outfmt fasta") && die "Can't run dust program on $output_file.predust\n";
 	
  	# open main output file to hold processed sequences
 	open(OUT,">$output_file") or die "Can't create $output_file\n";	
@@ -470,33 +470,35 @@ FILE: foreach my $anc_file (@anc_files) {
 	
     while (my $entry = $file->nextEntry) {
     	my $header = $entry->def;
-		my ($ti) = $header =~ m/ti\|(\d+) /;
-		my $seq = uc($entry->seq);        
-		my $length = length($seq);
-		my $n = $seq =~ tr/N/N/;
-		my $non_n = $length - $n;
-		my $percent_n = ($n / $length * 100);
-		
-		# reject sequence if there is not enough space to have a tandem repeat
-		if ($non_n < $min_bases){
-			print STDERR "ERROR: $ti contains fewer than $min_bases bases that are not Ns in its sequence after dusting\n" if ($verbose);
-			$file_rejected_too_short2++;			
-			$total_rejected_too_short2++;			
-			next;
-		}
-		# reject if there are too many N's now overall (some Ns may have been in sequence before dusting)
-		elsif ($percent_n > $max_n){
-			print STDERR "ERROR: $ti contains more than ${max_n}% Ns in its sequence after dusting\n" if ($verbose);
-			$file_rejected_high_n2++;			
-			$total_rejected_high_n2++;			
-			next;
-		}
-		# if we get here, we have a sequence which is OK and we can print to the final output file
-		else{
-			my $tidied_seq = tidy_seq($seq);
-			print OUT "$header\n$tidied_seq\n";
-		}
+	my ($ti) = $header =~ m/ti\|(\d+) /;
+	my $seq = $entry->seq;
+	$seq =~ s/a|c|g|t/N/g;
+	$seq = uc($seq);        
+	my $length = length($seq);
+	my $n = $seq =~ tr/N/N/;
+	my $non_n = $length - $n;
+	my $percent_n = ($n / $length * 100);
+	
+	# reject sequence if there is not enough space to have a tandem repeat
+	if ($non_n < $min_bases){
+	    print STDERR "ERROR: $ti contains fewer than $min_bases bases that are not Ns in its sequence after dusting\n" if ($verbose);
+	    $file_rejected_too_short2++;			
+	    $total_rejected_too_short2++;			
+	    next;
 	}
+	# reject if there are too many N's now overall (some Ns may have been in sequence before dusting)
+	elsif ($percent_n > $max_n){
+	    print STDERR "ERROR: $ti contains more than ${max_n}% Ns in its sequence after dusting\n" if ($verbose);
+	    $file_rejected_high_n2++;			
+	    $total_rejected_high_n2++;			
+	    next;
+	}
+	# if we get here, we have a sequence which is OK and we can print to the final output file
+	else{
+	    my $tidied_seq = tidy_seq($seq);
+	    print OUT "$header\n$tidied_seq\n";
+	}
+    }
 	
 	
 	###############################################################

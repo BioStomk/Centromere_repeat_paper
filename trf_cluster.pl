@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
 # trf_cluster.pl
 #
@@ -226,11 +226,12 @@ print STDERR "done\n";
 #
 ############################
 print STDERR "Creating blast database\n";
-if(!-e "$sample_trf.xnt"){
-	system("xdformat -n -I $sample_trf") == 0 or die "Can't run xdformat to crate $sample_trf BLAST database\n";	
+if(!-e "$sample_trf.nhr"){
+    #system("xdformat -n -I $sample_trf") == 0 or die "Can't run xdformat to crate $sample_trf BLAST database\n";	
+    system("makeblastdb -in $sample_trf -dbtype nucl -hash_index -parse_seqids") == 0 or die "Can't run makeblastdb to crate $sample_trf BLAST database\n";	
 }
 else{
-	print STDERR "$sample_trf.xnt BLAST database arlready created, ";
+	print STDERR "$sample_trf BLAST database arlready created, ";
 }
 print STDERR "done\n";
 
@@ -242,14 +243,26 @@ print STDERR "done\n";
 #
 #################################################
 
-print STDERR "Running qstack... ";
-my $qstack = "tandem-vs-x2.qstack.gz";
+# print STDERR "Running qstack... ";
+# my $qstack = "tandem-vs-x2.qstack.gz";
 
-if (!-e $qstack) {
-	system("qstack.pl -dgs $blast_score -x10000 -i$blast_identity -w13 $sample_trf $X2 | gzip -c > $qstack") == 0 or die "Couldn't run qstack.pl\n";
+# if (!-e $qstack) {
+# 	system("qstack.pl -dgs $blast_score -x10000 -i$blast_identity -w13 $sample_trf $X2 | gzip -c > $qstack") == 0 or die "Couldn't run qstack.pl\n";
+# } 
+# else {
+# 	print STDERR " qstack already run, ";
+# }
+# print STDERR "done\n";
+
+
+print STDERR "Running all vs all blast comparision... ";
+my $blast = "tandem-vs-x2.blast";
+
+if (!-e $blast) {
+	system("blastn -db $sample_trf -query $X2 -reward 1 -penalty -1 -gapopen 2 -gapextend 2 -word_size 13 -perc_identity 75 -out $blast -outfmt 6") == 0 or die "Couldn't run blastn\n";
 } 
 else {
-	print STDERR " qstack already run, ";
+	print STDERR " blastn already run, ";
 }
 print STDERR "done\n";
 
@@ -261,8 +274,8 @@ print STDERR "done\n";
 #
 ##############################
 # The result of this step is to create two cluster objects for eaah set of the top X global and local clusters
-my $global_cluster = cluster_n_graph($qstack, 'global', $global_peaks);
-my $local_cluster  = cluster_n_graph($qstack, 'local',  $local_peaks);
+my $global_cluster = cluster_n_graph($blast, 'global', $global_peaks);
+my $local_cluster  = cluster_n_graph($blast, 'local',  $local_peaks);
 
 
 
@@ -405,12 +418,13 @@ sub cluster_n_graph {
 	# will store details of percentage identity for all pairwise comparisons in a hash
 	my %identity;
 	
-	open(IN, "gunzip -c $blast |") or die;
+	open(IN, $blast) or die;
 	while (<IN>) {
 		# grab a subset of BLAST output:
 		# query id, subject id, query start + end, subject start + end
 		my @f = split;
-		my ($q, $s, $identity, $qb, $qe, $sb, $se) = ($f[0],$f[1],$f[10],$f[17],$f[18],$f[20],$f[21]);
+		#my ($q, $s, $identity, $qb, $qe, $sb, $se) = ($f[0],$f[1],$f[10],$f[17],$f[18],$f[20],$f[21]);
+		my ($q, $s, $identity, $qb, $qe, $sb, $se) = ($f[0],$f[1],$f[2],$f[6],$f[7],$f[8],$f[9]);
 		my ($qid) = $q =~ /tandem-(\d+)/;
 		my ($sid) = $s =~ /tandem-(\d+)/;
 	
@@ -565,7 +579,8 @@ sub cluster_n_graph {
 	
 	my $seqs = "$mode.cluster.seqs";
 	# grab sequences out of BLAST database
-	system("xdget -n -f $sample_trf $head > $seqs") == 0 or die "Couldn't run xdget\n";
+	#system("xdget -n -f $sample_trf $head > $seqs") == 0 or die "Couldn't run xdget\n";
+	system("blastdbcmd -db $sample_trf -entry_batch $head -out $seqs") == 0 or die "Couldn't run blastdbcmd\n";
 
 	# get sequences of each cluster and plot individual clusters
 	print STDERR "Processing clusters...";
@@ -617,8 +632,9 @@ sub cluster_n_graph {
 		
 		
 		# get sequences of matching IDs and write to file
-		system("xdget -n -f $sample_trf $idfile > $seqfile") == 0 or die;
-	
+		#system("xdget -n -f $sample_trf $idfile > $seqfile") == 0 or die;
+		system("blastdbcmd -db $sample_trf -entry_batch $idfile -out $seqfile") == 0 or die;
+
 		# can now remove the ID file as we no longer need it (and IDs will be available in FASTA header of seqs file)
 		unlink($idfile) or die "Can't remove $idfile\n";
 		
@@ -894,12 +910,12 @@ sub get_plot_data {
 
     # need to handle the data differently if it comes from the the 'slim' version of the TRF output file 
     if($trf =~ m/high.slim.trf/){
-		my ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />tandem-(\d+) N=(\S+) D=(\d+) L=(\d+) F=(\d+)% P=(\S+)/;
+		my ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />.*tandem-(\d+) N=(\S+) D=(\d+) L=(\d+) F=(\d+)% P=(\S+)/;
 		return ($id, $copy_number, $duplicates, $unit_length, $repeat_fraction, $parent, $gc);
     }
     else{
 		# just use a zero value for duplicates field when using a non-slimmed TRF file (which won't have duplicate info)
-		my ($id, $copy_number, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />tandem-(\d+) N=(\S+) L=(\d+) F=(\d+)% P=(\S+)/;
+		my ($id, $copy_number, $unit_length, $repeat_fraction, $parent) = $entry->def =~ />.*tandem-(\d+) N=(\S+) L=(\d+) F=(\d+)% P=(\S+)/;
 		return ($id, $copy_number, 0, $unit_length, $repeat_fraction, $parent, $gc);            
     }
 }
