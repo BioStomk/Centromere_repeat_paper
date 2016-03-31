@@ -299,7 +299,8 @@ FILE: foreach my $anc_file (@anc_files) {
     my $FA = new FAlite (\*FASTA);
     while (my $entry = $FA->nextEntry) {
             my $header = $entry->def;
-            $header =~ m/ti\|(\d+) /;
+            #$header =~ m/ti\|(\d+) /;
+			$header =~ m/>(.+)/;
             my $ti = $1;
             die "No ti in $header\n" if (!$ti);
             $ti_to_header{$ti} = $header;
@@ -338,7 +339,7 @@ FILE: foreach my $anc_file (@anc_files) {
 	print STDERR "Looping through all traces\n";
 	
 	# now loop through all the TIs and clip sequence if necessary
-	TRACE: foreach my $ti (sort {$a <=> $b} keys %ti_to_seq){
+	TRACE: foreach my $ti (sort {$a cmp $b} keys %ti_to_seq){
 		my $length = $ti_to_seqlength{$ti};
 
 
