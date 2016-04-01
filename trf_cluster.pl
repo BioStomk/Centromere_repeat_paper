@@ -22,6 +22,7 @@ use List::Util qw(sum shuffle);
 # Command line options
 ########################
 
+my $prep_dir; # disignate directory containing preprocessed fasta files
 my $local_peaks; # how many clusters to keep when analyzing BLAST results based on local alignments
 my $global_peaks; # how many clusters to keep when analyzing BLAST results based on global alignments
 my $mass_threshold; # what fraction of the maximum centromere mass should we use as a mimimum for retaining clusters
@@ -41,7 +42,8 @@ my $z_min;
 my $z_max;
 my $help; # get help
 
-GetOptions ("local_peaks=i"    => \$local_peaks,
+GetOptions ("prep_dir=s" => \$prep_dir,
+			"local_peaks=i"    => \$local_peaks,
 			"global_peaks=i"   => \$global_peaks,
 			"mass_threshold=f" => \$mass_threshold,
 			"alignment_threshold=i" => \$alignment_threshold,
@@ -64,6 +66,7 @@ GetOptions ("local_peaks=i"    => \$local_peaks,
 ################
 # set defaults
 ################
+$prep_dir = "preprocessed" if (!$prep_dir);
 $local_peaks = 10         if (!$local_peaks);
 $global_peaks = 10        if (!$global_peaks);
 $alignment_threshold = 10 if (!$alignment_threshold);
@@ -84,6 +87,7 @@ $min_cluster_size = 50    if (!$min_cluster_size);
 my $usage = "
 usage: trf-grapher.pl <options>
   -trf <trf output file>
+  -prep_dir <preprocessed directory> [$prep_dir]
   -local_peaks <int> [$local_peaks]
   -global_peaks <int> [$global_peaks]
   -alignment_threshold <int> [$alignment_threshold]
@@ -107,12 +111,13 @@ print STDERR "\n# $0 started at ", `date`, "\n";
 ######################################
 
 my $species;
-if ($trf =~ /^([a-z]+_[a-z]+)/i) {$species = "$1"} 
-else {$species = $trf}
+$trf =~ m/^(.+\/)+(.+)$/;
+my $trf_filename = $2;
+if ($trf_filename =~ /^([a-z]+_[a-z]+)/i) {$species = "$1"} 
+else {$species = $trf_filename}
 my $species_name = $species;
 $species_name =~ s/_/ /g;
 $species_name =~ s/^(\w)/\u$1/;
-
 
 
 #####################################################
@@ -778,7 +783,7 @@ sub sample_fasta{
 
 
 	# add all sequences to hashes (hope there is enough memory for this)
-	my @fasta_files = glob("*processed_traces.[0-9][0-9][0-9].fa");
+	my @fasta_files = glob("$prep_dir/*processed_traces.[0-9][0-9][0-9].fa");
 	
 	# calculate how many sequences we need to extract from each file
 	
