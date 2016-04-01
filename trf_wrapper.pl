@@ -66,7 +66,8 @@ GetOptions ("file=s"      => \$file,
 #
 ################################
 
-# set defaults if not specified on command line
+## set defaults if not specified on command line
+$dir = "preprocessed";
 # these are all defaults used (and suggested) by the trf program
 $match = 1    if (!$match);
 $mismatch = 1 if (!$mismatch);
@@ -130,7 +131,7 @@ if($allfiles){
 	@files = glob("*processed_traces*.fa")
 }
 
-# add a trailing slash if none was specified to path (this is a bit of a kludge)
+# remove a trailing slash if $dir contains it at the end of path (this is a bit of a kludge)
 ($dir =~ s/\/$//) if ($dir && $dir =~ m/\/$/);
 if($dir){
 	print STDERR "Looking for *processed_traces.fa files in $dir to process\n";
