@@ -23,6 +23,7 @@ use Getopt::Long;
 
 my $file; # specify one input file
 my $allfiles; # use current directory for data files
+my $dir; # specify directory in which input files exist
 my $match;
 my $mismatch;
 my $indel;
@@ -40,6 +41,7 @@ my $help; # print help
 
 GetOptions ("file=s"      => \$file,
 			"allfiles"    => \$allfiles,
+			"dir:s"       => \$dir,
 			"match:i"     => \$match,
             "mismatch:i"  => \$mismatch,
             "indel:i"     => \$indel,
@@ -98,7 +100,8 @@ my $usage = "
 usage: trf_wrapper.pl [options]
 options:
   -file <fasta file>
-  -allfiles <directory name containing fasta files>
+  -allfiles 
+  -dir <directory name containing fasta files>
   -match [$match]
   -mismatch [$mismatch]
   -indel [$indel]
@@ -115,7 +118,7 @@ options:
 ";
 
 die $usage if ($help);
-die $usage unless ($file or $allfiles);
+die $usage unless ($file or $allfiles or $dir);
 
 
 # if we have one file (-file option) add to @files array and loop through that
@@ -127,6 +130,12 @@ if($allfiles){
 	@files = glob("*processed_traces*.fa")
 }
 
+# add a trailing slash if none was specified to path (this is a bit of a kludge)
+($dir =~ s/\/$//) if ($dir && $dir =~ m/\/$/);
+if($dir){
+	print STDERR "Looking for *processed_traces.fa files in $dir to process\n";
+	@files = glob("$dir/*processed_traces*.fa")
+}
 
 
 ###############################
@@ -155,12 +164,21 @@ my ($total_nt, $excluded_trf_nt, $low_trf_nt, $high_trf_nt) = (0,0,0,0); # keep 
 #
 ###############################
 
+my $outdir = "trf";
+if(! -e $outdir) {
+	system("mkdir -p $outdir");
+}
+
+
 foreach my $fasta (@files){
 	print STDERR "Processing $fasta\n";
 	$file_counter++;
 		
 	# form name of output file from parameters
-	my $data_file  = $fasta . "." . join(".", @param) . ".dat";
+	my $fasta_file_name = $fasta;
+	$fasta_file_name =~ s/^$dir\///;
+	my $data_file_name = $fasta_file_name . "." . join(".", @param) . ".dat";
+	my $data_file  = $outdir . "/" . $data_file_name;
 
 	# We may already have run trf on the same sequence file and just want to tweak the parameters for deciding which
 	# repeats to keep, so can make the script use an existing data file if one exists
@@ -169,6 +187,7 @@ foreach my $fasta (@files){
 	}
 	else{
 		system("trf $fasta $match $mismatch $indel $pmatch $pindel $min_score $max_period -d -h > /dev/null") or die "Can't run trf\n";
+		system("mv $data_file_name $data_file") or die "Can't mv $data_file_name $data_file";
 	}		
 	
 	# now process trf output file
@@ -186,14 +205,14 @@ foreach my $fasta (@files){
 
 print STDERR "Combining separate *high.trf files into one main output file\n";
 
-my ($species) = $files[0] =~ m/(.*)_processed_traces/;
-my $trf_file = "$species.high.trf";
+my ($species) = $files[0] =~ m/$dir\/(.*)_processed_traces/;
+my $trf_file = "$outdir/$species.high.trf";
 if(-e $trf_file){
 	print STDERR "\tNOTE: $trf_file already exists, will use existing file\n";
 }
 else{
 	print STDERR "Combining separate TRF files into one output file\n";	
-	system("cat *processed_traces*high.trf > $trf_file") && die "Couldn't concatenate trf files into $trf_file\n";
+	system("cat $outdir/*processed_traces*high.trf > $trf_file") && die "Couldn't concatenate trf files into $trf_file\n";
 }
 
 
@@ -264,8 +283,14 @@ sub process_trf_output{
 	# want to capture the (slightly processed) FASTA headers in the trf output
 	my $header;
 
+	# prepare two output files
+	my $fasta_file_name = $file;
+	$fasta_file_name =~ s/^$dir\///;
+	my $high_trf_file = $outdir."/".${fasta_file_name}.".high.trf";
+	my $low_trf_file = $outdir."/".${fasta_file_name}.".low.trf";
+
 	# can skip this step if files already exist
-	if(-e "$file.high.trf" && -e "$file.low.trf"){
+	if(-e $high_trf_file && -e $low_trf_file){
 		print STDERR "\tNOTE: Both *.trf output files already exists, skipping\n";
 		return;
 	}
@@ -276,8 +301,8 @@ sub process_trf_output{
 	# two output streams, one for repeats which make up a high repeat fraction (HRF) of the read
 	# and one for repeats which make up a low repeat fraction (LRF). These might contain repeat
 	# boundaries
-	open(OUT1,">$file.high.trf") or die "Can't open hrf output file\n";
-	open(OUT2,">$file.low.trf") or die "Can't open lrf output file\n";
+	open(OUT1,">$high_trf_file") or die "Can't open hrf output file\n";
+	open(OUT2,">$low_trf_file") or die "Can't open lrf output file\n";
 	open(DATA,"<$data") or die "Can't open data file\n";
 
 
