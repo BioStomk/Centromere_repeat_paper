@@ -86,6 +86,10 @@ open(PROCESSED,">$processed_file_name") or die "Can't create $processed_file_nam
 
 
 my @fasta_files = glob("${dir}*.fasta");
+my $outdir = "preprocessed";
+if(! -e $outdir) {
+	system("mkdir -p $outdir");
+}
 
 foreach my $fasta_file (@fasta_files){
 	# reset file-level counters
@@ -102,9 +106,8 @@ foreach my $fasta_file (@fasta_files){
 	my ($species,$file_number) = ($1,$2);
 
 	# create output file name to be used for a couple of output files
-	my $output_file = "${species}_processed_traces.${file_number}.fa";
-	# my $output_file = "${fasta_file}.dust";
-	my $dust_temp_file = "${fasta_file}.temp";
+	my $output_file = "$outdir/${species}_processed_traces.${file_number}.fa";
+	my $dust_temp_file = "${output_file}.tmp";
 
 	###############################################################
 	#
