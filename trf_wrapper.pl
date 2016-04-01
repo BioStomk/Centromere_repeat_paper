@@ -21,8 +21,6 @@ use Getopt::Long;
 #
 ################################
 
-my $file; # specify one input file
-my $allfiles; # use current directory for data files
 my $dir; # specify directory in which input files exist
 my $match;
 my $mismatch;
@@ -39,9 +37,7 @@ my $output_number; # allow the numbering of tandem repeats in output file to sta
 my $slim; # remove duplicates from trf file and create a new 'slim' trf file
 my $help; # print help
 
-GetOptions ("file=s"      => \$file,
-			"allfiles"    => \$allfiles,
-			"dir:s"       => \$dir,
+GetOptions ("dir:s"       => \$dir,
 			"match:i"     => \$match,
             "mismatch:i"  => \$mismatch,
             "indel:i"     => \$indel,
@@ -93,15 +89,12 @@ print STDERR "\n# $0 started at ", `date`, "\n";
 #
 ################################
 
-die "Specify -file option for single fasta file, or -allfiles option to process all files in current directory\n" if ($file && $allfiles);
 die "low_repeat_cutoff must be lower than high_repeat_cutoff\n" if ($low_repeat_cutoff >= $high_repeat_cutoff);
 
 # usage
 my $usage = "
 usage: trf_wrapper.pl [options]
 options:
-  -file <fasta file>
-  -allfiles 
   -dir <directory name containing fasta files>
   -match [$match]
   -mismatch [$mismatch]
@@ -119,21 +112,22 @@ options:
 ";
 
 die $usage if ($help);
-die $usage unless ($file or $allfiles or $dir);
 
+###############################
+#
+# Glob input fasta files
+#
+###############################
 
-# if we have one file (-file option) add to @files array and loop through that
-# otherwise add all fasta files in current directory to @files array
 my @files;
-@files = ($file) if ($file);
-if($allfiles){
-	print STDERR "Looking for *processed_traces.fa files in current directory to process\n";
-	@files = glob("*processed_traces*.fa")
-}
 
 # remove a trailing slash if $dir contains it at the end of path (this is a bit of a kludge)
 ($dir =~ s/\/$//) if ($dir && $dir =~ m/\/$/);
-if($dir){
+
+if(! -e $dir){
+	print STDERR "Input directory $dir does not exist. Exit";
+}
+else{
 	print STDERR "Looking for *processed_traces.fa files in $dir to process\n";
 	@files = glob("$dir/*processed_traces*.fa")
 }
