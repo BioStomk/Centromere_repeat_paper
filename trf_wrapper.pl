@@ -182,7 +182,7 @@ foreach my $fasta (@files){
 	}
 	else{
 		system("trf $fasta $match $mismatch $indel $pmatch $pindel $min_score $max_period -d -h > /dev/null") or die "Can't run trf\n";
-		system("mv $data_file_name $data_file") or die "Can't mv $data_file_name $data_file";
+		rename $data_file_name, $data_file or die "Can't mv $data_file_name $data_file";
 	}		
 	
 	# now process trf output file
