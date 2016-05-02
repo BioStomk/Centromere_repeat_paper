@@ -524,7 +524,7 @@ sub combine_trf_files{
 		print STDERR "\tNOTE: $trf_file already exists, will use existing file\n";
 	}
 	else{
-		print STDERR "Combining separate TRF files into one output file\n";
 		system("cat $outdir/*processed_traces*$mode.trf > $trf_file") && die "Couldn't concatenate trf files into $trf_file\n";
+		print STDERR "Combined separate TRF files into $trf_file\n";
 	}
 }
