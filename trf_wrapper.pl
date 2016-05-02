@@ -198,17 +198,11 @@ foreach my $fasta (@files){
 #
 ###############################################################
 
-print STDERR "Combining separate *high.trf files into one main output file\n";
-
 my ($species) = $files[0] =~ m/$dir\/(.*)_processed_traces/;
+combine_trf_files($species, 'high');
+combine_trf_files($species, 'low' );
+
 my $trf_file = "$outdir/$species.high.trf";
-if(-e $trf_file){
-	print STDERR "\tNOTE: $trf_file already exists, will use existing file\n";
-}
-else{
-	print STDERR "Combining separate TRF files into one output file\n";	
-	system("cat $outdir/*processed_traces*high.trf > $trf_file") && die "Couldn't concatenate trf files into $trf_file\n";
-}
 
 
 ###############################
@@ -518,4 +512,19 @@ sub calculate_seq_lengths{
 		$seq_to_length{$header} = $length;		
 	}
 	close(FILE);
+}
+
+sub combine_trf_files{
+	my ($species, $mode) = @_;
+
+	print STDERR "Combining separate *$mode.trf files into one main output file\n";
+
+	my $trf_file = "$outdir/$species.$mode.trf";
+	if(-e $trf_file){
+		print STDERR "\tNOTE: $trf_file already exists, will use existing file\n";
+	}
+	else{
+		print STDERR "Combining separate TRF files into one output file\n";
+		system("cat $outdir/*processed_traces*$mode.trf > $trf_file") && die "Couldn't concatenate trf files into $trf_file\n";
+	}
 }
