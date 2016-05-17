@@ -264,7 +264,7 @@ print STDERR "Running all vs all blast comparision... ";
 my $blast = "tandem-vs-x2.blast";
 
 if (!-e $blast) {
-	system("blastn -db $sample_trf -query $X2 -reward 1 -penalty -1 -gapopen 2 -gapextend 2 -word_size 13 -perc_identity 75 -out $blast -outfmt 6") == 0 or die "Couldn't run blastn\n";
+	system("blastn -db $sample_trf -query $X2 -reward 1 -penalty -1 -gapopen 2 -gapextend 2 -word_size 13 -perc_identity $blast_identity -out $blast -outfmt 6") == 0 or die "Couldn't run blastn\n";
 } 
 else {
 	print STDERR " blastn already run, ";
